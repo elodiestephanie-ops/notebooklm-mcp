@@ -28,6 +28,12 @@ import { log } from "../utils/logger.js";
 export interface HttpTransportOptions {
   port: number;
   host?: string;
+  /**
+   * Optional Bearer token. When set, every /mcp request must carry
+   * `Authorization: Bearer <token>` — unauthenticated requests get 401.
+   * Set via NOTEBOOKLM_API_KEY env var. /healthz is always open.
+   */
+  apiKey?: string;
   /** Connect callback invoked once per new session — wires the McpServer to the transport. */
   connect: (transport: StreamableHTTPServerTransport) => Promise<void>;
 }
@@ -41,6 +47,12 @@ const SESSION_HEADER = "mcp-session-id";
 
 export async function startHttpTransport(opts: HttpTransportOptions): Promise<HttpTransportHandle> {
   const transports = new Map<string, StreamableHTTPServerTransport>();
+
+  if (opts.apiKey) {
+    log.info("🔒 [HTTP] Bearer token auth enabled");
+  } else {
+    log.warning("⚠️  [HTTP] No API key set — endpoint is open. Set NOTEBOOKLM_API_KEY for remote access.");
+  }
 
   const server = createServer((req, res) => {
     void handleRequest(req, res, transports, opts).catch((err) => {
@@ -110,6 +122,17 @@ async function handleRequest(
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "not found", expected: "/mcp" }));
     return;
+  }
+
+  // Bearer token check — only enforced when an API key is configured.
+  if (opts.apiKey) {
+    const auth = headerString(req.headers["authorization"]);
+    const token = auth?.startsWith("Bearer ") ? auth.slice(7) : undefined;
+    if (token !== opts.apiKey) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
   }
 
   const sessionId = headerString(req.headers[SESSION_HEADER]);

@@ -553,6 +553,7 @@ class NotebookLMMCPServer {
       await startHttpTransport({
         port: options.port,
         host: options.host,
+        apiKey: process.env.NOTEBOOKLM_API_KEY,
         connect: async (transport) => {
           await this.server.connect(transport);
         },

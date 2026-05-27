@@ -49,21 +49,30 @@ Write-Host "MCP server starting (job $($mcpJob.Id))..." -ForegroundColor Gray
 Start-Sleep -Seconds 3
 
 # Start Cloudflare quick tunnel and capture the public URL
+# Use a blank temp config so cloudflared ignores ~/.cloudflared/config.yml (named tunnel)
+# and creates a fresh trycloudflare.com quick tunnel instead.
 Write-Host "Cloudflare Tunnel connecting..." -ForegroundColor Gray
-$cfOut = "$env:TEMP\cf-tunnel.txt"
+$cfOut       = "$env:TEMP\cf-tunnel.txt"
+$cfTempCfg   = "$env:TEMP\cf-quick.yml"
+"" | Out-File -FilePath $cfTempCfg -Encoding utf8   # empty config = no named tunnel
+
 $cf = Start-Process -FilePath "C:\Users\elodi\bin\cloudflared.exe" `
-  -ArgumentList "tunnel","--url","http://localhost:$port" `
+  -ArgumentList "tunnel","--config",$cfTempCfg,"--url","http://localhost:$port" `
   -PassThru -NoNewWindow -RedirectStandardError $cfOut
 
 # Wait for the public URL to appear
 $url = $null
-for ($i = 0; $i -lt 20; $i++) {
+for ($i = 0; $i -lt 30; $i++) {
   Start-Sleep -Seconds 1
-  $line = Get-Content $cfOut -ErrorAction SilentlyContinue | Select-String "trycloudflare.com"
-  if ($line) {
-    $url = ($line -split "https://")[1] -split " " | Select-Object -First 1
-    $url = "https://$url".Trim()
-    break
+  $match = Get-Content $cfOut -ErrorAction SilentlyContinue |
+             Select-String "trycloudflare\.com" |
+             Select-Object -First 1
+  if ($match) {
+    # Extract just the https://... URL from the log line (MatchInfo.Line is the plain text)
+    if ($match.Line -match "(https://[^\s|]+trycloudflare\.com)") {
+      $url = $matches[1].Trim()
+      break
+    }
   }
 }
 

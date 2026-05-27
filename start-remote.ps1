@@ -18,10 +18,11 @@ if (Test-Path $envFile) {
   }
 }
 
-$apiKey   = $env:NOTEBOOKLM_API_KEY
-$cfToken  = $env:CLOUDFLARE_TUNNEL_TOKEN
-$port     = 3000
-$tunnelUrl = "https://aecf99a5-5392-45a6-8a8b-eb44670236e1.cfargotunnel.com"
+$apiKey      = $env:NOTEBOOKLM_API_KEY
+$cfToken     = $env:CLOUDFLARE_TUNNEL_TOKEN
+$workerToken = $env:CLAUDE_AI_WORKER_TOKEN   # stable Worker proxy auth token
+$port        = 3000
+$workerUrl   = "https://notebooklm-proxy.elodiestephanie.workers.dev"
 
 if (-not $apiKey -or -not $cfToken) {
   Write-Error "Missing NOTEBOOKLM_API_KEY or CLOUDFLARE_TUNNEL_TOKEN in .env"
@@ -31,11 +32,7 @@ if (-not $apiKey -or -not $cfToken) {
 Write-Host ""
 Write-Host "Starting NotebookLM MCP (remote mode)" -ForegroundColor Cyan
 Write-Host "  MCP server : http://localhost:$port/mcp"
-Write-Host "  Public URL : $tunnelUrl/mcp"
-Write-Host ""
-Write-Host "Register this in Claude.ai Settings > Integrations:" -ForegroundColor Yellow
-Write-Host "  URL   : $tunnelUrl/mcp" -ForegroundColor Green
-Write-Host "  Token : $apiKey" -ForegroundColor Green
+Write-Host "  Stable URL : $workerUrl/mcp  (register this once in Claude.ai)"
 Write-Host ""
 
 # Start MCP server in HTTP mode (background job)
@@ -73,13 +70,36 @@ for ($i = 0; $i -lt 20; $i++) {
 if ($url) {
   Write-Host ""
   Write-Host "TUNNEL IS LIVE" -ForegroundColor Green
+  Write-Host "  Tunnel URL : $url" -ForegroundColor Gray
+
+  # Push new tunnel URL to Cloudflare Worker KV so Claude.ai stable URL auto-updates
+  Write-Host "Updating Worker proxy with new tunnel URL..." -ForegroundColor Gray
+  try {
+    $updateBody = "{`"tunnel_url`":`"$url`"}"
+    $updateHeaders = @{
+      "Authorization" = "Bearer $apiKey"   # UPDATE_SECRET == NOTEBOOKLM_API_KEY
+      "Content-Type"  = "application/json"
+    }
+    $updateResp = Invoke-RestMethod `
+      -Uri "$workerUrl/update-tunnel" `
+      -Method Post `
+      -Headers $updateHeaders `
+      -Body $updateBody
+    Write-Host "Worker updated: $($updateResp.stored)" -ForegroundColor Green
+  } catch {
+    Write-Host "Warning: Could not update Worker KV: $_" -ForegroundColor Yellow
+    Write-Host "Claude.ai may still be pointing to the previous tunnel." -ForegroundColor Yellow
+  }
+
+  Write-Host ""
   Write-Host "============================================" -ForegroundColor Green
-  Write-Host "Register this in Claude.ai Settings > Integrations:" -ForegroundColor Yellow
-  Write-Host "  URL   : $url/mcp" -ForegroundColor Green
-  Write-Host "  Token : $apiKey" -ForegroundColor Green
+  Write-Host "Claude.ai stable integration URL (register once, never changes):" -ForegroundColor Yellow
+  Write-Host "  URL   : $workerUrl/mcp" -ForegroundColor Green
+  if ($workerToken) {
+    Write-Host "  Token : $workerToken" -ForegroundColor Green
+  }
   Write-Host "============================================" -ForegroundColor Green
   Write-Host ""
-  Write-Host "Note: This URL changes on each restart. Update Claude.ai when you restart." -ForegroundColor Gray
 } else {
   Write-Host "Could not detect tunnel URL - check $cfOut" -ForegroundColor Red
 }

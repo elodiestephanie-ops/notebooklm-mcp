@@ -84,6 +84,35 @@ For a local build, replace `command`/`args` with `"command": "node"`, `"args": [
 
 ---
 
+## Connect to Claude.ai (web & mobile)
+
+Claude.ai needs a public HTTPS endpoint to reach the MCP server. The quickest
+path is a Cloudflare quick tunnel — free, no domain required. A one-time
+Worker deploy gives you a **stable URL** so Claude.ai never needs reconfiguring.
+
+**Full step-by-step guide → [`docs/claude-ai-setup.md`](./docs/claude-ai-setup.md)**
+
+Quick summary:
+
+1. Copy `.env.example` → `.env`, fill in `NOTEBOOKLM_API_KEY` (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`)
+2. Install `cloudflared` from the [Cloudflare releases page](https://github.com/cloudflare/cloudflared/releases/latest)
+3. *(One-time)* Deploy the Worker proxy for a stable URL:
+   ```bash
+   node scripts/deploy-worker.js \
+     --account-id  YOUR_CF_ACCOUNT_ID \
+     --api-token   YOUR_CF_API_TOKEN \
+     --kv-ns-id    YOUR_KV_NAMESPACE_ID \
+     --api-key     YOUR_NOTEBOOKLM_API_KEY
+   ```
+4. Register the printed `workers.dev` URL in **Claude.ai → Settings → Connectors → Add custom connector**
+5. Whenever you want Claude.ai access, run:
+   - Windows: `.\start-remote.ps1`
+   - Mac/Linux: `./start-remote.sh`
+
+Each person runs their own instance against their own Google account — nobody shares access.
+
+---
+
 ## Connect to other clients
 
 ### Cursor — `~/.cursor/mcp.json`

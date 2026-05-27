@@ -33,6 +33,12 @@ Thumbs.db
 npm-debug.log*
 screenshots/
 
+# Certificates & keys (should never be committed)
+*.pem
+*.key
+*.p12
+*.pfx
+
 # Archives / local notes
 *.tar.gz
 mcp-add-command.txt

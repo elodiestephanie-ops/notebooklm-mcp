@@ -255,6 +255,60 @@ export const notebookManagementTools: Tool[] = [
     },
   },
   {
+    name: "create_notebook",
+    description:
+      "Create a brand-new notebook on NotebookLM via browser automation and " +
+      "register it in the local library — all in one step. No need to open " +
+      "a browser manually or copy/paste a URL.\n\n" +
+      "Returns the same notebook object as `add_notebook`. The notebook is " +
+      "immediately usable with `add_source` and `ask_question`.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Display name for the notebook (e.g. 'Legal Research').",
+        },
+        description: {
+          type: "string",
+          description: "1–2 sentence summary of what the notebook will contain.",
+        },
+        topics: {
+          type: "array",
+          items: { type: "string" },
+          description: "3–5 topics this notebook will cover.",
+        },
+        content_types: {
+          type: "array",
+          items: { type: "string" },
+          description: "Content classification, e.g. ['research', 'legal', 'documentation'].",
+        },
+        use_cases: {
+          type: "array",
+          items: { type: "string" },
+          description: "When Claude should consult this notebook.",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional free-form tags for organisation.",
+        },
+        show_browser: {
+          type: "boolean",
+          description: "Show the browser window while creating. Default: false.",
+        },
+      },
+      required: ["name", "description", "topics"],
+    },
+    annotations: {
+      title: "Create and register a new notebook",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  },
+  {
     name: "get_library_stats",
     description:
       "Aggregate statistics about the local notebook library: " +

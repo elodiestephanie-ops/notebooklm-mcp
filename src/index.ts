@@ -88,11 +88,19 @@ conversational context (NotebookLM uses session-RAG so follow-ups get
 sharper). \`list_sessions\` enumerates live sessions; \`reset_session\`
 clears chat history (same id), \`close_session\` ends a session.
 
+## Creating notebooks
+
+Use \`create_notebook\` to create a new notebook on NotebookLM and register
+it in the local library in one step — no browser interaction required.
+Returns the same notebook object as \`add_notebook\`.
+
 ## Source ingestion (multi-source)
 
-Call \`add_source\` once per source — text snippets and URLs are supported.
-NotebookLM crawls/indexes each source asynchronously; new sources are
-typically queryable within 5–30 seconds after \`add_source\` succeeds.
+Use \`batch_add_sources\` when adding more than one source to a notebook —
+it reuses a single browser session across all sources, significantly faster
+than calling \`add_source\` N times. For a single source, \`add_source\`
+is fine. Both support \`url\` and \`text\` types. Sources are queryable
+within 5–30 s of ingestion.
 
 ## Audio Overview (async chain — important)
 
@@ -341,6 +349,31 @@ class NotebookLMMCPServer {
 
           case "cleanup_data":
             result = await this.toolHandlers.handleCleanupData(args as { confirm: boolean });
+            break;
+
+          case "create_notebook":
+            result = await this.toolHandlers.handleCreateNotebook(
+              args as {
+                name: string;
+                description: string;
+                topics: string[];
+                content_types?: string[];
+                use_cases?: string[];
+                tags?: string[];
+                show_browser?: boolean;
+              }
+            );
+            break;
+
+          case "batch_add_sources":
+            result = await this.toolHandlers.handleBatchAddSources(
+              args as {
+                sources: Array<{ type: "url" | "text"; content: string; title?: string }>;
+                notebook_id?: string;
+                notebook_url?: string;
+                show_browser?: boolean;
+              }
+            );
             break;
 
           case "add_source":

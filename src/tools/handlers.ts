@@ -997,6 +997,108 @@ export class ToolHandlers {
   }
 
   /**
+   * Handle create_notebook tool — creates a new notebook on NotebookLM via
+   * browser automation and registers it in the local library in one step.
+   */
+  async handleCreateNotebook(args: {
+    name: string;
+    description: string;
+    topics: string[];
+    content_types?: string[];
+    use_cases?: string[];
+    tags?: string[];
+    show_browser?: boolean;
+  }): Promise<ToolResult<{ notebook: unknown }>> {
+    log.info(`🔧 [TOOL] create_notebook called: "${args.name}"`);
+    const originalConfig = { ...CONFIG };
+    if (args.show_browser !== undefined) {
+      Object.assign(CONFIG, applyBrowserOptions(undefined, args.show_browser));
+    }
+    const overrideHeadless = args.show_browser === undefined ? undefined : args.show_browser;
+    try {
+      const url = await this.sessionManager.createNotebookOnSite(overrideHeadless);
+      const notebook = this.library.addNotebook({
+        url,
+        name: args.name,
+        description: args.description,
+        topics: args.topics,
+        content_types: args.content_types,
+        use_cases: args.use_cases,
+        tags: args.tags,
+      });
+      log.success(`✅ [TOOL] create_notebook completed: ${notebook.id}`);
+      return { success: true, data: { notebook } };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      log.error(`❌ [TOOL] create_notebook failed: ${msg}`);
+      return { success: false, error: msg };
+    } finally {
+      Object.assign(CONFIG, originalConfig);
+    }
+  }
+
+  /**
+   * Handle batch_add_sources tool — add multiple sources in one call,
+   * reusing a single browser session across all of them.
+   */
+  async handleBatchAddSources(args: {
+    sources: Array<{ type: "url" | "text"; content: string; title?: string }>;
+    notebook_id?: string;
+    notebook_url?: string;
+    show_browser?: boolean;
+  }): Promise<
+    ToolResult<{
+      summary: { total: number; succeeded: number; failed: number };
+      results: Array<AddSourceResult & { input: { type: string; title?: string; content: string } }>;
+    }>
+  > {
+    log.info(`🔧 [TOOL] batch_add_sources called (${args.sources.length} sources)`);
+    const originalConfig = { ...CONFIG };
+    if (args.show_browser !== undefined) {
+      Object.assign(CONFIG, applyBrowserOptions(undefined, args.show_browser));
+    }
+    const overrideHeadless = args.show_browser === undefined ? undefined : args.show_browser;
+    try {
+      const url = await this.resolveNotebookUrl(args.notebook_id, args.notebook_url);
+      const session = await this.sessionManager.getOrCreateSession(undefined, url, overrideHeadless);
+
+      const results = [];
+      let succeeded = 0;
+      let failed = 0;
+
+      for (const source of args.sources) {
+        log.info(`  📄 Adding source: type=${source.type} title=${source.title ?? "(auto)"}`);
+        const result = await session.addSource({
+          type: source.type,
+          content: source.content,
+          title: source.title,
+        });
+        const preview = source.content.length > 80
+          ? source.content.slice(0, 80) + "…"
+          : source.content;
+        results.push({ ...result, input: { type: source.type, title: source.title, content: preview } });
+        if (result.success) succeeded++;
+        else failed++;
+      }
+
+      log.success(`✅ [TOOL] batch_add_sources: ${succeeded}/${args.sources.length} succeeded`);
+      return {
+        success: failed === 0,
+        data: {
+          summary: { total: args.sources.length, succeeded, failed },
+          results,
+        },
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      log.error(`❌ [TOOL] batch_add_sources failed: ${msg}`);
+      return { success: false, error: msg };
+    } finally {
+      Object.assign(CONFIG, originalConfig);
+    }
+  }
+
+  /**
    * Handle generate_audio tool (issue #11).
    */
   async handleGenerateAudio(args: {

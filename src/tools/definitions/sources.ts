@@ -212,8 +212,69 @@ export const downloadAudioTool: Tool = {
   },
 };
 
+export const batchAddSourcesTool: Tool = {
+  name: "batch_add_sources",
+  description:
+    "Add multiple sources to a notebook in a single call, reusing one browser " +
+    "session. More efficient than calling `add_source` N times — avoids " +
+    "repeated page-load overhead and reduces token usage.\n\n" +
+    "Each source is `{type, content, title?}` — same fields as `add_source`. " +
+    "Sources are processed sequentially. Returns a per-source result array " +
+    "plus a summary of how many succeeded.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      sources: {
+        type: "array",
+        description: "List of sources to add. Each item: `{type, content, title?}`.",
+        items: {
+          type: "object",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["url", "text"],
+              description: "`url` crawls the website; `text` ingests content verbatim.",
+            },
+            content: {
+              type: "string",
+              description: "URL (for `url`) or raw text body (for `text`).",
+            },
+            title: {
+              type: "string",
+              description: "Optional display title shown in the source list.",
+            },
+          },
+          required: ["type", "content"],
+        },
+      },
+      notebook_id: {
+        type: "string",
+        description:
+          "Library notebook id. Defaults to the active notebook when omitted.",
+      },
+      notebook_url: {
+        type: "string",
+        description: "Direct NotebookLM URL — overrides `notebook_id`.",
+      },
+      show_browser: {
+        type: "boolean",
+        description: "Show the browser window for debugging. Default: false.",
+      },
+    },
+    required: ["sources"],
+  },
+  annotations: {
+    title: "Add multiple sources at once",
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
+};
+
 export const sourceTools: Tool[] = [
   addSourceTool,
+  batchAddSourcesTool,
   generateAudioTool,
   getAudioStatusTool,
   downloadAudioTool,

@@ -155,6 +155,59 @@ export class SessionManager {
   }
 
   /**
+   * Create a brand-new notebook on NotebookLM and return its URL.
+   * Uses the shared browser context (same fingerprint as all sessions).
+   */
+  async createNotebookOnSite(overrideHeadless?: boolean): Promise<string> {
+    const context = await this.sharedContextManager.getOrCreateContext(overrideHeadless);
+    const page = await context.newPage();
+
+    try {
+      log.info("🆕 Creating new notebook on NotebookLM...");
+
+      await page.goto("https://notebooklm.google.com", {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+
+      const createSelectors = [
+        'button:has-text("Create new")',
+        'button:has-text("Create notebook")',
+        '[aria-label*="Create new" i]',
+      ];
+
+      let clicked = false;
+      for (const sel of createSelectors) {
+        const btn = page.locator(sel).first();
+        if (await btn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          await btn.click();
+          clicked = true;
+          log.info(`  ✅ Clicked create button (${sel})`);
+          break;
+        }
+      }
+
+      if (!clicked) {
+        throw new Error('Could not find "Create new" button on NotebookLM home page — ensure you are authenticated');
+      }
+
+      // Wait for navigation to the new notebook
+      await page.waitForURL(/notebooklm\.google\.com\/notebook\/[a-f0-9-]+/, {
+        timeout: 15_000,
+      });
+
+      // Strip query params (e.g. ?addSource=true)
+      const rawUrl = page.url();
+      const notebookUrl = rawUrl.replace(/\?.*$/, "");
+
+      log.success(`✅ New notebook created: ${notebookUrl}`);
+      return notebookUrl;
+    } finally {
+      await page.close().catch(() => undefined);
+    }
+  }
+
+  /**
    * Get an existing session by ID
    */
   getSession(sessionId: string): BrowserSession | null {

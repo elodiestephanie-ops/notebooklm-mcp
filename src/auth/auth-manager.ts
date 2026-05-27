@@ -66,6 +66,9 @@ export class AuthManager {
     try {
       // Save storage state (cookies + localStorage + IndexedDB)
       await context.storageState({ path: this.stateFilePath });
+      // Restrict state.json to owner-read-only (contains Google session cookies).
+      // fs.chmod is a no-op on Windows but protects the file on Mac/Linux.
+      await fs.chmod(this.stateFilePath, 0o600).catch(() => undefined);
 
       // Also save sessionStorage if page is provided
       if (page) {

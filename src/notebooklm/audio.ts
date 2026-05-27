@@ -302,7 +302,13 @@ export async function downloadAudioOverview(
     const download = await downloadPromise;
 
     const suggested = download.suggestedFilename();
-    const targetPath = path.join(destinationDir, suggested || preferredFileName);
+    // Resolve both paths and confirm the target stays inside destinationDir,
+    // preventing a crafted filename from escaping via path traversal.
+    const resolvedDir = path.resolve(destinationDir);
+    const targetPath = path.resolve(resolvedDir, suggested || preferredFileName);
+    if (!targetPath.startsWith(resolvedDir + path.sep) && targetPath !== resolvedDir) {
+      throw new Error(`Download target outside destination directory: ${targetPath}`);
+    }
     await download.saveAs(targetPath);
 
     return { success: true, filePath: targetPath };

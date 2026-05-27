@@ -76,6 +76,18 @@ export class SessionManager {
     if (!targetUrl.startsWith("http")) {
       throw new Error("Notebook URL must be an absolute URL");
     }
+    // Whitelist: only allow notebooklm.google.com to prevent a prompt-injected
+    // instruction from navigating the browser (with live Google cookies) to an
+    // arbitrary domain.
+    try {
+      const parsed = new URL(targetUrl);
+      if (parsed.hostname !== "notebooklm.google.com") {
+        throw new Error(`Notebook URL must be on notebooklm.google.com (got: ${parsed.hostname})`);
+      }
+    } catch (e) {
+      if (e instanceof TypeError) throw new Error(`Invalid notebook URL: ${targetUrl}`);
+      throw e;
+    }
 
     // Generate ID if not provided
     if (!sessionId) {

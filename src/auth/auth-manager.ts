@@ -88,6 +88,8 @@ export class AuthManager {
           await fs.writeFile(this.sessionFilePath, sessionStorageData, {
             encoding: "utf-8",
           });
+          // Restrict session.json to owner-read-only (may contain session tokens).
+          await fs.chmod(this.sessionFilePath, 0o600).catch(() => undefined);
 
           const entries = Object.keys(JSON.parse(sessionStorageData)).length;
           log.success(`✅ Browser state saved (incl. sessionStorage: ${entries} entries)`);

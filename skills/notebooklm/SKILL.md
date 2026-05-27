@@ -90,11 +90,16 @@ Only generate when explicitly requested. The flow is async:
 2. Poll `get_audio_status` every 30s (takes 2–10 min)
 3. When `status: "ready"`, offer to `download_audio`
 
-## Multi-user note
+## Each person has their own setup
 
-All users connecting to this MCP share the same Google/NotebookLM account
-(the account tied to the browser session on the host PC). This is intentional
-for shared research workspaces. Each user sees and can query the same notebooks.
+This MCP is personal — it connects to whoever's Google account authenticated
+during `setup_auth`. Other people (colleagues, friends) should install the MCP
+from the same GitHub repo (`npx github:elodiestephanie-ops/notebooklm-mcp`)
+on their own machine, then run `setup_auth` to log in with their own Google
+account. They get their own notebooks, completely separate.
+
+The Cloudflare Worker proxy is for the account owner's cross-device access
+(Claude.ai on web/mobile) only — not shared with others.
 
 ## Error handling
 
